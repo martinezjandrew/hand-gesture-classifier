@@ -14,7 +14,7 @@ from HaGridDataset import HaGridDataset
 from sklearn.preprocessing import LabelEncoder
 from pipelines.train_mlp import HandMLP, PATH, classes
 import random
-from test import show_hand_skeleton
+from show_hand_skeleton import show_hand_skeleton
 from sklearn.metrics import f1_score, confusion_matrix
 
 
