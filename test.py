@@ -2,6 +2,7 @@ import numpy as np
 from HaGridDataset import HaGridDataset
 import matplotlib.pyplot as plt
 
+
 # Mediapipe-style hand connections
 HAND_CONNECTIONS = [
     (0, 1),
@@ -25,13 +26,6 @@ HAND_CONNECTIONS = [
     (18, 19),
     (19, 20),  # Pinky
 ]
-
-# Load dataset
-data = HaGridDataset(data_path="./annotations/test/")
-print(f"Dataset size: {len(data)}")
-
-test_data = data[10000]
-print(test_data)
 
 
 def show_hand_skeleton(data):
@@ -61,5 +55,12 @@ def show_hand_skeleton(data):
     plt.show()
 
 
-# Show all hands in the first sample
-show_hand_skeleton(test_data)
+if __name__ == "__main__":
+    # Load dataset
+    data = HaGridDataset(data_path="./annotations/test/")
+    print(f"Dataset size: {len(data)}")
+
+    test_data = data[10000]
+    print(test_data)
+    # Show all hands in the first sample
+    show_hand_skeleton(test_data)
