@@ -1,3 +1,4 @@
 .venv/
 annotations/
 __pycache__/
+*.task

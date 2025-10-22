@@ -32,4 +32,4 @@ class HaGridDataset(Dataset):
 
         item = self.frame.iloc[index]
 
-        return item.to_json()
+        return item.to_dict()

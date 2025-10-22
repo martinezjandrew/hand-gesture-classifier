@@ -1,0 +1,1 @@
+QT_QPA_PLATFORM=xcb python hand_landmarker_demo.py
