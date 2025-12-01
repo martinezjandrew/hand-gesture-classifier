@@ -1,71 +1,80 @@
 import cv2
+import torch
+import numpy as np
+from pipelines.train_mlp import HandMLP
 import mediapipe as mp
-import urllib.request
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
-import os
 
-# Download model if it doesn't exist
-model_url = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
-model_path = "hand_landmarker.task"
+# Load MLP
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+net = HandMLP()
+net.load_state_dict(
+    torch.load("model_weights.pth", map_location=device, weights_only=False)
+)
+net.eval()
 
-if not os.path.exists(model_path):
-    print("Downloading hand_landmarker.task model...")
-    urllib.request.urlretrieve(model_url, model_path)
+metadata = torch.load("metadata.pth", map_location=device, weights_only=False)
+classes = metadata["classes"]
+mean = torch.tensor(metadata["mean"]).float().to(device)
+std = torch.tensor(metadata["std"]).float().to(device)
 
-# Setup the hand landmarker
-BaseOptions = python.BaseOptions
-HandLandmarker = vision.HandLandmarker
-HandLandmarkerOptions = vision.HandLandmarkerOptions
+# Mediapipe Hands
+mp_hands = mp.solutions.hands
+mp_drawing = mp.solutions.drawing_utils
 
-options = HandLandmarkerOptions(
-    base_options=BaseOptions(model_asset_path=model_path), num_hands=2
+hands = mp_hands.Hands(
+    static_image_mode=False,
+    max_num_hands=2,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5,
 )
 
-detector = HandLandmarker.create_from_options(options)
-
-# Open webcam
+# OpenCV camera
 cap = cv2.VideoCapture(0)
 
 while cap.isOpened():
-    success, frame = cap.read()
-    if not success:
+    ret, frame = cap.read()
+    if not ret:
         break
 
+    # Flip for mirror view
     frame = cv2.flip(frame, 1)
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-    result = detector.detect(mp_image)
+    results = hands.process(rgb_frame)
 
-    # Draw landmarks and print handedness
-    if result.hand_landmarks:
-        for idx, landmarks in enumerate(result.hand_landmarks):
-            handedness = result.handedness[idx][0].category_name  # 'Left' or 'Right'
-            if handedness == "Left":
-                handedness = "Right"
-            else:
-                handedness = "Left"
-            print(f"Detected {handedness} hand")
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            # Convert landmarks to array
+            landmarks = []
+            for lm in hand_landmarks.landmark:
+                landmarks.extend([lm.x, lm.y])
 
-            h, w, _ = frame.shape
-            for lm in landmarks:
-                cx, cy = int(lm.x * w), int(lm.y * h)
-                cv2.circle(frame, (cx, cy), 4, (0, 255, 0), -1)
-
-            # Label hand on frame
-            cv2.putText(
-                frame,
-                handedness,
-                (10, 30 + idx * 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                (255, 0, 0),
-                2,
+            x_input = (
+                torch.tensor(landmarks, dtype=torch.float32).unsqueeze(0).to(device)
             )
 
-    cv2.imshow("Hand Landmarks", frame)
-    if cv2.waitKey(1) & 0xFF == 27:  # ESC key
+            # Predict gesture
+            with torch.no_grad():
+                output = net(x_input)
+                pred_idx = torch.argmax(output, dim=1).item()
+                pred_label = classes[pred_idx]
+
+            # Draw landmarks + label
+            mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+            cv2.putText(
+                frame,
+                pred_label,
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 255, 0),
+                2,
+                cv2.LINE_AA,
+            )
+
+    cv2.imshow("Hand Gesture Recognition", frame)
+
+    if cv2.waitKey(1) & 0xFF == 27:  # ESC to exit
         break
 
 cap.release()
