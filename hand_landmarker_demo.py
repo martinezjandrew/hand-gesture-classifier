@@ -1,18 +1,18 @@
 import cv2
 import torch
 import numpy as np
-from pipelines.train_mlp import HandMLP
+from HandMLP import HandMLP
 import mediapipe as mp
 
 # Load MLP
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 net = HandMLP()
 net.load_state_dict(
-    torch.load("model_weights.pth", map_location=device, weights_only=False)
+    torch.load("./model/model_weights.pth", map_location=device, weights_only=False)
 )
 net.eval()
 
-metadata = torch.load("metadata.pth", map_location=device, weights_only=False)
+metadata = torch.load("./model/metadata.pth", map_location=device, weights_only=False)
 classes = metadata["classes"]
 mean = torch.tensor(metadata["mean"]).float().to(device)
 std = torch.tensor(metadata["std"]).float().to(device)
